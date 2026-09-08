@@ -90,6 +90,8 @@ sports-betting bankroll bet --description "Lakers ML" --stake 50 --decimal-odds 
 sports-betting bankroll settle --index 0 --outcome won
 sports-betting bankroll list
 sports-betting bankroll stats
+sports-betting bankroll leaderboard --by roi --top 5
+sports-betting bankroll export --output history.csv
 ```
 
 ## Module overview

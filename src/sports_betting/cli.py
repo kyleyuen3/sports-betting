@@ -182,6 +182,32 @@ def _cmd_bankroll_stats(args: argparse.Namespace) -> None:
     )
 
 
+def _cmd_bankroll_export(args: argparse.Namespace) -> None:
+    bankroll = _load_bankroll_or_exit(Path(args.file))
+    output_path = Path(args.output)
+    bankroll.export_csv(output_path)
+    print(f"Exported {len(bankroll.bets)} bet(s) to {output_path}")
+
+
+def _cmd_bankroll_leaderboard(args: argparse.Namespace) -> None:
+    bankroll = _load_bankroll_or_exit(Path(args.file))
+    ranked = bankroll.leaderboard(by=args.by, top=args.top)
+    if not ranked:
+        print("No settled bets yet.")
+        return
+
+    header = f"{'#':>3}  {'Bet':>5}  {'Description':<30}{'Stake':>10}{'Odds':>8}{'Outcome':>10}{'Profit':>10}{'ROI':>9}"
+    print(header)
+    for rank, (index, bet) in enumerate(ranked, start=1):
+        roi = bet.profit / bet.stake * 100
+        description = bet.description if len(bet.description) <= 30 else bet.description[:27] + "..."
+        print(
+            f"{rank:>3}  {'#' + str(index):>5}  {description:<30}"
+            f"{bet.stake:>10.2f}{bet.decimal_odds:>8g}{bet.outcome.value:>10}"
+            f"{bet.profit:>+10.2f}{roi:>+8.1f}%"
+        )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="sports-betting",
@@ -272,6 +298,17 @@ def build_parser() -> argparse.ArgumentParser:
     p_bank_stats = bankroll_sub.add_parser("stats", help="Show bankroll balance, ROI, and bet counts")
     add_file_arg(p_bank_stats)
     p_bank_stats.set_defaults(func=_cmd_bankroll_stats)
+
+    p_bank_export = bankroll_sub.add_parser("export", help="Export the full bet history to a CSV file")
+    p_bank_export.add_argument("--output", required=True, help="Path to write the CSV file to")
+    add_file_arg(p_bank_export)
+    p_bank_export.set_defaults(func=_cmd_bankroll_export)
+
+    p_bank_lb = bankroll_sub.add_parser("leaderboard", help="Rank your settled bets from best to worst")
+    p_bank_lb.add_argument("--by", choices=["profit", "roi"], default="profit", help="Ranking metric (default: profit)")
+    p_bank_lb.add_argument("--top", type=int, default=None, help="Only show the top N bets")
+    add_file_arg(p_bank_lb)
+    p_bank_lb.set_defaults(func=_cmd_bankroll_leaderboard)
 
     return parser
 

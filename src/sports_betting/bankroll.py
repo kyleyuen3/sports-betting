@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import csv
 import json
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -9,6 +10,16 @@ from enum import Enum
 from pathlib import Path
 
 DEFAULT_BANKROLL_PATH = Path.home() / ".sports_betting" / "bankroll.json"
+
+CSV_FIELDNAMES = [
+    "index",
+    "placed_at",
+    "description",
+    "stake",
+    "decimal_odds",
+    "outcome",
+    "profit",
+]
 
 
 class BetOutcome(str, Enum):
@@ -132,3 +143,49 @@ class Bankroll:
                 "Run 'sports-betting bankroll init' first."
             )
         return cls.from_dict(json.loads(path.read_text()))
+
+    def export_csv(self, path: Path) -> None:
+        """Write the full bet history to a CSV file, one row per bet."""
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=CSV_FIELDNAMES)
+            writer.writeheader()
+            for index, bet in enumerate(self.bets):
+                writer.writerow(
+                    {
+                        "index": index,
+                        "placed_at": bet.placed_at.isoformat(),
+                        "description": bet.description,
+                        "stake": bet.stake,
+                        "decimal_odds": bet.decimal_odds,
+                        "outcome": bet.outcome.value,
+                        "profit": round(bet.profit, 2),
+                    }
+                )
+
+    def leaderboard(
+        self, by: str = "profit", top: int | None = None
+    ) -> list[tuple[int, Bet]]:
+        """Rank settled bets from best to worst, returning ``(original_index, bet)``
+        pairs. Pending bets are excluded since they have no realized result yet.
+
+        ``by`` is "profit" (net currency amount) or "roi" (profit relative
+        to that bet's own stake, useful for comparing bets of different sizes).
+        ``top`` limits the result to the N best-ranked bets.
+        """
+        if by not in ("profit", "roi"):
+            raise ValueError('by must be "profit" or "roi"')
+
+        settled = [
+            (index, bet)
+            for index, bet in enumerate(self.bets)
+            if bet.outcome != BetOutcome.PENDING
+        ]
+
+        def sort_key(item: tuple[int, Bet]) -> float:
+            _, bet = item
+            return bet.profit / bet.stake if by == "roi" else bet.profit
+
+        ranked = sorted(settled, key=sort_key, reverse=True)
+        return ranked[:top] if top is not None else ranked
