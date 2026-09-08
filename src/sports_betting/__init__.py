@@ -13,6 +13,7 @@ from .ev import expected_value, is_positive_ev
 from .kelly import kelly_fraction, kelly_stake
 from .arbitrage import find_arbitrage, arbitrage_stakes
 from .bankroll import Bankroll, Bet
+from .live_odds import OddsAPIClient, OddsAPIError, GameOdds, BookmakerOdds, Outcome, scan_for_arbitrage
 
 __all__ = [
     "american_to_decimal",
@@ -30,6 +31,12 @@ __all__ = [
     "arbitrage_stakes",
     "Bankroll",
     "Bet",
+    "OddsAPIClient",
+    "OddsAPIError",
+    "GameOdds",
+    "BookmakerOdds",
+    "Outcome",
+    "scan_for_arbitrage",
 ]
 
 __version__ = "0.1.0"

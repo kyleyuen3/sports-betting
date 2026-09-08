@@ -48,6 +48,26 @@ bank.settle_bet(bet, BetOutcome.WON)
 print(bank.balance, bank.roi)
 ```
 
+### Live odds
+
+Fetch real-time odds from [The Odds API](https://the-odds-api.com/) (free
+tier available) and feed them straight into the tools above:
+
+```python
+from sports_betting import OddsAPIClient, scan_for_arbitrage
+
+# Reads the key from the ODDS_API_KEY env var, or pass api_key=... explicitly
+client = OddsAPIClient()
+
+games = client.get_odds("basketball_nba", regions="us", markets="h2h")
+for game in games:
+    print(game.home_team, "vs", game.away_team, game.best_odds_by_outcome())
+
+# Automatically check every game for a cross-bookmaker arbitrage opportunity
+for game, result in scan_for_arbitrage(games):
+    print(f"{game.away_team} @ {game.home_team}: {result.profit_margin:.2%} guaranteed return")
+```
+
 ## CLI usage
 
 ```bash
@@ -59,6 +79,10 @@ sports-betting ev --probability 0.55 --decimal-odds 2.0 --stake 100
 sports-betting kelly --probability 0.55 --decimal-odds 2.0 --bankroll 1000 --fraction 0.5
 
 sports-betting arbitrage --decimal-odds 2.1 2.05 --total-stake 1000
+
+# Requires an API key: export ODDS_API_KEY=... (or pass --api-key)
+sports-betting live-odds --sport basketball_nba --regions us --markets h2h
+sports-betting live-arbitrage --sport soccer_epl --regions uk
 ```
 
 ## Module overview
@@ -70,6 +94,7 @@ sports-betting arbitrage --decimal-odds 2.1 2.05 --total-stake 1000
 | `kelly.py`       | Kelly criterion stake sizing (with fractional Kelly support) |
 | `arbitrage.py`   | Detect arbitrage across bookmakers and compute equal-payout stakes |
 | `bankroll.py`    | Track a bankroll's bet history, balance, and ROI            |
+| `live_odds.py`   | Fetch live odds from The Odds API and check them for arbitrage |
 | `cli.py`         | Command-line interface tying the above together             |
 
 ## Development
