@@ -46,6 +46,13 @@ bank = Bankroll(starting_balance=1000)
 bet = bank.place_bet("Lakers ML", stake=50, decimal_odds=1.91)
 bank.settle_bet(bet, BetOutcome.WON)
 print(bank.balance, bank.roi)
+
+# Leaderboard: rank your settled bets best-to-worst by profit or ROI
+for index, bet in bank.leaderboard(by="roi", top=5):
+    print(f"#{index} {bet.description}: {bet.profit:+.2f} ({bet.profit / bet.stake:+.1%})")
+
+# Export the full bet history to CSV
+bank.export_csv("history.csv")
 ```
 
 ### Live odds
