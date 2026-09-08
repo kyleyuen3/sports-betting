@@ -94,6 +94,24 @@ sports-betting bankroll leaderboard --by roi --top 5
 sports-betting bankroll export --output history.csv
 ```
 
+## CLI commands
+
+| Command                     | Purpose                                                    |
+|------------------------------|-------------------------------------------------------------|
+| `convert`                   | Convert odds between American, decimal, and implied probability |
+| `ev`                        | Calculate the expected value of a bet                      |
+| `kelly`                     | Calculate a Kelly criterion stake                           |
+| `arbitrage`                 | Check a set of odds for a cross-bookmaker arbitrage opportunity |
+| `live-odds`                 | Fetch live odds for a sport from The Odds API (needs `ODDS_API_KEY`) |
+| `live-arbitrage`            | Scan live odds for a sport for arbitrage opportunities      |
+| `bankroll init`             | Create a new persistent bankroll                            |
+| `bankroll bet`              | Place a bet against the bankroll                            |
+| `bankroll settle`           | Mark a pending bet won, lost, or push                       |
+| `bankroll list`             | List every recorded bet                                     |
+| `bankroll stats`            | Show balance, net profit, ROI, and bet counts               |
+| `bankroll leaderboard`      | Rank settled bets best-to-worst by profit or ROI            |
+| `bankroll export`           | Export the full bet history to a CSV file                   |
+
 ## Module overview
 
 | Module           | Purpose                                                    |
