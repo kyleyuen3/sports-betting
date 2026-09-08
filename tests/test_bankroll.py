@@ -73,3 +73,30 @@ def test_invalid_bet_construction():
         br.place_bet("Bad odds", stake=10, decimal_odds=1.0)
     with pytest.raises(ValueError):
         br.place_bet("Bad stake", stake=0, decimal_odds=2.0)
+
+
+def test_save_and_load_round_trip(tmp_path):
+    path = tmp_path / "bankroll.json"
+    br = Bankroll(1000)
+    won = br.place_bet("Bet 1", stake=100, decimal_odds=2.0)
+    br.place_bet("Bet 2", stake=50, decimal_odds=1.5)
+    br.settle_bet(won, BetOutcome.WON)
+    br.save(path)
+
+    loaded = Bankroll.load(path)
+    assert loaded.starting_balance == br.starting_balance
+    assert len(loaded.bets) == 2
+    assert loaded.balance == pytest.approx(br.balance)
+    assert loaded.bets[0].outcome == BetOutcome.WON
+    assert loaded.bets[1].outcome == BetOutcome.PENDING
+
+
+def test_load_missing_file_raises(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        Bankroll.load(tmp_path / "does_not_exist.json")
+
+
+def test_save_creates_parent_directories(tmp_path):
+    path = tmp_path / "nested" / "dir" / "bankroll.json"
+    Bankroll(500).save(path)
+    assert path.exists()

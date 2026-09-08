@@ -12,7 +12,7 @@ from .odds import (
 from .ev import expected_value, is_positive_ev
 from .kelly import kelly_fraction, kelly_stake
 from .arbitrage import find_arbitrage, arbitrage_stakes
-from .bankroll import Bankroll, Bet
+from .bankroll import Bankroll, Bet, BetOutcome, DEFAULT_BANKROLL_PATH
 from .live_odds import OddsAPIClient, OddsAPIError, GameOdds, BookmakerOdds, Outcome, scan_for_arbitrage
 
 __all__ = [
@@ -31,6 +31,8 @@ __all__ = [
     "arbitrage_stakes",
     "Bankroll",
     "Bet",
+    "BetOutcome",
+    "DEFAULT_BANKROLL_PATH",
     "OddsAPIClient",
     "OddsAPIError",
     "GameOdds",

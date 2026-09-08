@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
+from pathlib import Path
+
+DEFAULT_BANKROLL_PATH = Path.home() / ".sports_betting" / "bankroll.json"
 
 
 class BetOutcome(str, Enum):
@@ -83,3 +87,48 @@ class Bankroll:
         if staked == 0:
             return 0.0
         return sum(b.profit for b in settled) / staked
+
+    def to_dict(self) -> dict:
+        return {
+            "starting_balance": self.starting_balance,
+            "bets": [
+                {
+                    "description": bet.description,
+                    "stake": bet.stake,
+                    "decimal_odds": bet.decimal_odds,
+                    "outcome": bet.outcome.value,
+                    "placed_at": bet.placed_at.isoformat(),
+                }
+                for bet in self.bets
+            ],
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Bankroll":
+        bankroll = cls(starting_balance=data["starting_balance"])
+        bankroll.bets = [
+            Bet(
+                description=b["description"],
+                stake=b["stake"],
+                decimal_odds=b["decimal_odds"],
+                outcome=BetOutcome(b["outcome"]),
+                placed_at=datetime.fromisoformat(b["placed_at"]),
+            )
+            for b in data["bets"]
+        ]
+        return bankroll
+
+    def save(self, path: Path = DEFAULT_BANKROLL_PATH) -> None:
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(self.to_dict(), indent=2))
+
+    @classmethod
+    def load(cls, path: Path = DEFAULT_BANKROLL_PATH) -> "Bankroll":
+        path = Path(path)
+        if not path.exists():
+            raise FileNotFoundError(
+                f"No bankroll found at {path}. "
+                "Run 'sports-betting bankroll init' first."
+            )
+        return cls.from_dict(json.loads(path.read_text()))

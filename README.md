@@ -83,6 +83,13 @@ sports-betting arbitrage --decimal-odds 2.1 2.05 --total-stake 1000
 # Requires an API key: export ODDS_API_KEY=... (or pass --api-key)
 sports-betting live-odds --sport basketball_nba --regions us --markets h2h
 sports-betting live-arbitrage --sport soccer_epl --regions uk
+
+# Bankroll tracking (persisted to ~/.sports_betting/bankroll.json by default)
+sports-betting bankroll init --starting-balance 1000
+sports-betting bankroll bet --description "Lakers ML" --stake 50 --decimal-odds 1.91
+sports-betting bankroll settle --index 0 --outcome won
+sports-betting bankroll list
+sports-betting bankroll stats
 ```
 
 ## Module overview
