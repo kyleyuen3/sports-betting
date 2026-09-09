@@ -24,6 +24,11 @@ from .player_props import (
     compare_props,
     load_game_logs_csv,
     load_props_csv,
+    save_game_logs_csv,
+    save_props_csv,
+    append_game_log,
+    upsert_prop,
+    remove_prop,
 )
 
 __all__ = [
@@ -59,6 +64,11 @@ __all__ = [
     "compare_props",
     "load_game_logs_csv",
     "load_props_csv",
+    "save_game_logs_csv",
+    "save_props_csv",
+    "append_game_log",
+    "upsert_prop",
+    "remove_prop",
 ]
 
 __version__ = "0.1.0"

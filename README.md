@@ -124,6 +124,14 @@ sports-betting bankroll export --output history.csv
 
 # Player props vs. history against the same opponent (see player_props.py for CSV columns)
 sports-betting props compare --props props.csv --logs game_logs.csv --team BUF
+
+# Weekly upkeep: record a finished game, then set next week's line
+sports-betting props log --player "Josh Allen" --team BUF --opponent MIA \
+    --date 2025-09-14 --stat-type passing_yards --value 278 --logs game_logs.csv
+sports-betting props set-line --player "Josh Allen" --team BUF --opponent NYJ \
+    --stat-type passing_yards --line 251.5 --props props.csv
+sports-betting props remove-line --player "Josh Allen" --team BUF --opponent MIA \
+    --stat-type passing_yards --props props.csv
 ```
 
 ## CLI commands
@@ -144,6 +152,9 @@ sports-betting props compare --props props.csv --logs game_logs.csv --team BUF
 | `bankroll leaderboard`      | Rank settled bets best-to-worst by profit or ROI            |
 | `bankroll export`           | Export the full bet history to a CSV file                   |
 | `props compare`             | Check current player props against history vs. the same opponent |
+| `props log`                 | Record a finished game's stat line into the game-log CSV     |
+| `props set-line`            | Add or update this week's prop line for a player+opponent+stat |
+| `props remove-line`         | Remove a prop that's no longer on this week's slate          |
 
 ## Module overview
 

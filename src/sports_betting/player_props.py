@@ -160,3 +160,97 @@ def load_props_csv(path: Path) -> list[PlayerProp]:
             )
             for row in csv.DictReader(f)
         ]
+
+
+GAME_LOG_FIELDNAMES = ["player", "team", "opponent", "date", "stat_type", "stat_value"]
+PROP_FIELDNAMES = ["player", "team", "opponent", "stat_type", "line"]
+
+
+def save_game_logs_csv(path: Path, game_logs: list[PlayerGameLog]) -> None:
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=GAME_LOG_FIELDNAMES)
+        writer.writeheader()
+        for log in game_logs:
+            writer.writerow(
+                {
+                    "player": log.player,
+                    "team": log.team,
+                    "opponent": log.opponent,
+                    "date": log.date,
+                    "stat_type": log.stat_type,
+                    "stat_value": log.stat_value,
+                }
+            )
+
+
+def save_props_csv(path: Path, props: list[PlayerProp]) -> None:
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=PROP_FIELDNAMES)
+        writer.writeheader()
+        for prop in props:
+            writer.writerow(
+                {
+                    "player": prop.player,
+                    "team": prop.team,
+                    "opponent": prop.opponent,
+                    "stat_type": prop.stat_type,
+                    "line": prop.line,
+                }
+            )
+
+
+def _load_game_logs_if_exists(path: Path) -> list[PlayerGameLog]:
+    return load_game_logs_csv(path) if Path(path).exists() else []
+
+
+def _load_props_if_exists(path: Path) -> list[PlayerProp]:
+    return load_props_csv(path) if Path(path).exists() else []
+
+
+def append_game_log(path: Path, log: PlayerGameLog) -> None:
+    """Add one played game to a game-log CSV, creating the file (with header)
+    if it doesn't exist yet. This is the weekly step that turns last week's
+    prop into history: once a game is final, record what actually happened.
+    """
+    game_logs = _load_game_logs_if_exists(path)
+    game_logs.append(log)
+    save_game_logs_csv(path, game_logs)
+
+
+def upsert_prop(path: Path, prop: PlayerProp) -> bool:
+    """Add or update this week's line for a player+opponent+stat in a props
+    CSV, creating the file if it doesn't exist. If a prop already exists for
+    the same (player, team, opponent, stat_type), its line is replaced
+    in place rather than duplicated; otherwise the new prop is appended.
+
+    Returns True if an existing row was replaced, False if one was added.
+    """
+    props = _load_props_if_exists(path)
+    key = (prop.player, prop.team, prop.opponent, prop.stat_type)
+    for i, existing in enumerate(props):
+        if (existing.player, existing.team, existing.opponent, existing.stat_type) == key:
+            props[i] = prop
+            save_props_csv(path, props)
+            return True
+    props.append(prop)
+    save_props_csv(path, props)
+    return False
+
+
+def remove_prop(path: Path, player: str, team: str, opponent: str, stat_type: str) -> bool:
+    """Remove a single prop (e.g. a matchup that's no longer this week's
+    slate) from a props CSV. Returns True if a row was removed.
+    """
+    props = _load_props_if_exists(path)
+    key = (player, team, opponent, stat_type)
+    remaining = [
+        p for p in props if (p.player, p.team, p.opponent, p.stat_type) != key
+    ]
+    if len(remaining) == len(props):
+        return False
+    save_props_csv(path, remaining)
+    return True

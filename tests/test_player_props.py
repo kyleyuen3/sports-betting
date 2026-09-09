@@ -4,11 +4,14 @@ from sports_betting.player_props import (
     PlayerGameLog,
     PlayerProp,
     PropResult,
+    append_game_log,
     compare_props,
     history_vs_opponent,
     load_game_logs_csv,
     load_props_csv,
+    remove_prop,
     result_for_game,
+    upsert_prop,
 )
 
 GAME_LOGS = [
@@ -88,3 +91,74 @@ def test_load_game_logs_csv(tmp_path):
 def test_load_props_csv_missing_file_raises(tmp_path):
     with pytest.raises(FileNotFoundError):
         load_props_csv(tmp_path / "missing.csv")
+
+
+def test_append_game_log_creates_file(tmp_path):
+    path = tmp_path / "logs.csv"
+    log = PlayerGameLog("Josh Allen", "BUF", "MIA", "2025-09-14", "passing_yards", 278)
+    append_game_log(path, log)
+
+    logs = load_game_logs_csv(path)
+    assert logs == [log]
+
+
+def test_append_game_log_adds_to_existing_file(tmp_path):
+    path = tmp_path / "logs.csv"
+    first = PlayerGameLog("Josh Allen", "BUF", "MIA", "2025-09-14", "passing_yards", 278)
+    second = PlayerGameLog("Josh Allen", "BUF", "NYJ", "2025-09-21", "passing_yards", 210)
+    append_game_log(path, first)
+    append_game_log(path, second)
+
+    logs = load_game_logs_csv(path)
+    assert logs == [first, second]
+
+
+def test_upsert_prop_adds_new_file(tmp_path):
+    path = tmp_path / "props.csv"
+    prop = PlayerProp("Josh Allen", "BUF", "MIA", "passing_yards", 245.5)
+    replaced = upsert_prop(path, prop)
+
+    assert replaced is False
+    assert load_props_csv(path) == [prop]
+
+
+def test_upsert_prop_replaces_matching_line(tmp_path):
+    path = tmp_path / "props.csv"
+    original = PlayerProp("Josh Allen", "BUF", "MIA", "passing_yards", 245.5)
+    updated = PlayerProp("Josh Allen", "BUF", "MIA", "passing_yards", 251.5)
+    upsert_prop(path, original)
+    replaced = upsert_prop(path, updated)
+
+    assert replaced is True
+    props = load_props_csv(path)
+    assert props == [updated]  # replaced in place, not duplicated
+
+
+def test_upsert_prop_appends_distinct_matchup(tmp_path):
+    path = tmp_path / "props.csv"
+    allen_vs_mia = PlayerProp("Josh Allen", "BUF", "MIA", "passing_yards", 245.5)
+    allen_vs_nyj = PlayerProp("Josh Allen", "BUF", "NYJ", "passing_yards", 230.5)
+    upsert_prop(path, allen_vs_mia)
+    upsert_prop(path, allen_vs_nyj)
+
+    props = load_props_csv(path)
+    assert props == [allen_vs_mia, allen_vs_nyj]
+
+
+def test_remove_prop_removes_matching_line(tmp_path):
+    path = tmp_path / "props.csv"
+    prop = PlayerProp("Josh Allen", "BUF", "MIA", "passing_yards", 245.5)
+    upsert_prop(path, prop)
+
+    removed = remove_prop(path, "Josh Allen", "BUF", "MIA", "passing_yards")
+    assert removed is True
+    assert load_props_csv(path) == []
+
+
+def test_remove_prop_no_match_returns_false(tmp_path):
+    path = tmp_path / "props.csv"
+    upsert_prop(path, PlayerProp("Josh Allen", "BUF", "MIA", "passing_yards", 245.5))
+
+    removed = remove_prop(path, "Nobody", "XXX", "YYY", "points")
+    assert removed is False
+    assert len(load_props_csv(path)) == 1

@@ -11,7 +11,16 @@ from .bankroll import Bankroll, BetOutcome, DEFAULT_BANKROLL_PATH
 from .ev import expected_value
 from .kelly import kelly_fraction, kelly_stake
 from .live_odds import OddsAPIClient, OddsAPIError, scan_for_arbitrage
-from .player_props import compare_props, load_game_logs_csv, load_props_csv
+from .player_props import (
+    PlayerGameLog,
+    PlayerProp,
+    append_game_log,
+    compare_props,
+    load_game_logs_csv,
+    load_props_csv,
+    remove_prop,
+    upsert_prop,
+)
 from .odds import (
     american_to_decimal,
     decimal_to_american,
@@ -209,6 +218,41 @@ def _cmd_bankroll_leaderboard(args: argparse.Namespace) -> None:
         )
 
 
+def _cmd_props_log(args: argparse.Namespace) -> None:
+    log = PlayerGameLog(
+        player=args.player,
+        team=args.team,
+        opponent=args.opponent,
+        date=args.date,
+        stat_type=args.stat_type,
+        stat_value=args.value,
+    )
+    append_game_log(args.logs, log)
+    print(f"Logged {log.player} vs {log.opponent} on {log.date}: {log.stat_type}={log.stat_value:g}")
+
+
+def _cmd_props_set_line(args: argparse.Namespace) -> None:
+    prop = PlayerProp(
+        player=args.player,
+        team=args.team,
+        opponent=args.opponent,
+        stat_type=args.stat_type,
+        line=args.line,
+    )
+    replaced = upsert_prop(args.props, prop)
+    verb = "Updated" if replaced else "Added"
+    print(f"{verb} line: {prop.player} ({prop.team}) vs {prop.opponent} {prop.stat_type} {prop.line:g}")
+
+
+def _cmd_props_remove_line(args: argparse.Namespace) -> None:
+    removed = remove_prop(args.props, args.player, args.team, args.opponent, args.stat_type)
+    if removed:
+        print(f"Removed line: {args.player} ({args.team}) vs {args.opponent} {args.stat_type}")
+    else:
+        print("No matching prop found - nothing removed.", file=sys.stderr)
+        raise SystemExit(1)
+
+
 def _cmd_props_compare(args: argparse.Namespace) -> None:
     try:
         props = load_props_csv(args.props)
@@ -347,6 +391,39 @@ def build_parser() -> argparse.ArgumentParser:
     p_props_compare.add_argument("--logs", required=True, help="Path to a player game-log CSV")
     p_props_compare.add_argument("--team", default=None, help="Only show props for players on this team")
     p_props_compare.set_defaults(func=_cmd_props_compare)
+
+    p_props_log = props_sub.add_parser(
+        "log", help="Record a finished game's stat line (turns a settled prop into history)"
+    )
+    p_props_log.add_argument("--player", required=True)
+    p_props_log.add_argument("--team", required=True)
+    p_props_log.add_argument("--opponent", required=True)
+    p_props_log.add_argument("--date", required=True, help="ISO date, e.g. 2025-09-14")
+    p_props_log.add_argument("--stat-type", required=True, dest="stat_type")
+    p_props_log.add_argument("--value", type=float, required=True, help="What actually happened")
+    p_props_log.add_argument("--logs", required=True, help="Path to the game-log CSV to append to")
+    p_props_log.set_defaults(func=_cmd_props_log)
+
+    p_props_set = props_sub.add_parser(
+        "set-line", help="Add or update this week's prop line for a player+opponent+stat"
+    )
+    p_props_set.add_argument("--player", required=True)
+    p_props_set.add_argument("--team", required=True)
+    p_props_set.add_argument("--opponent", required=True)
+    p_props_set.add_argument("--stat-type", required=True, dest="stat_type")
+    p_props_set.add_argument("--line", type=float, required=True)
+    p_props_set.add_argument("--props", required=True, help="Path to the props CSV to update")
+    p_props_set.set_defaults(func=_cmd_props_set_line)
+
+    p_props_remove = props_sub.add_parser(
+        "remove-line", help="Remove a prop that's no longer on this week's slate"
+    )
+    p_props_remove.add_argument("--player", required=True)
+    p_props_remove.add_argument("--team", required=True)
+    p_props_remove.add_argument("--opponent", required=True)
+    p_props_remove.add_argument("--stat-type", required=True, dest="stat_type")
+    p_props_remove.add_argument("--props", required=True, help="Path to the props CSV to update")
+    p_props_remove.set_defaults(func=_cmd_props_remove_line)
 
     return parser
 
