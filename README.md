@@ -132,6 +132,11 @@ sports-betting props set-line --player "Josh Allen" --team BUF --opponent NYJ \
     --stat-type passing_yards --line 251.5 --props props.csv
 sports-betting props remove-line --player "Josh Allen" --team BUF --opponent MIA \
     --stat-type passing_yards --props props.csv
+
+# Bulk mode: update many players at once from CSVs in the same formats above
+sports-betting props log-bulk --from this_weeks_results.csv --logs game_logs.csv
+sports-betting props set-lines-bulk --from next_weeks_lines.csv --props props.csv
+sports-betting props remove-lines-bulk --from last_weeks_lines.csv --props props.csv
 ```
 
 ## CLI commands
@@ -155,6 +160,9 @@ sports-betting props remove-line --player "Josh Allen" --team BUF --opponent MIA
 | `props log`                 | Record a finished game's stat line into the game-log CSV     |
 | `props set-line`            | Add or update this week's prop line for a player+opponent+stat |
 | `props remove-line`         | Remove a prop that's no longer on this week's slate          |
+| `props log-bulk`            | Record many finished games at once from a game-log CSV       |
+| `props set-lines-bulk`      | Add or update many players' lines at once from a props CSV   |
+| `props remove-lines-bulk`   | Remove many props at once, e.g. clearing last week's slate   |
 
 ## Module overview
 

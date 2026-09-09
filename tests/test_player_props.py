@@ -5,13 +5,16 @@ from sports_betting.player_props import (
     PlayerProp,
     PropResult,
     append_game_log,
+    append_game_logs_bulk,
     compare_props,
     history_vs_opponent,
     load_game_logs_csv,
     load_props_csv,
     remove_prop,
+    remove_props_bulk,
     result_for_game,
     upsert_prop,
+    upsert_props_bulk,
 )
 
 GAME_LOGS = [
@@ -161,4 +164,74 @@ def test_remove_prop_no_match_returns_false(tmp_path):
 
     removed = remove_prop(path, "Nobody", "XXX", "YYY", "points")
     assert removed is False
+    assert len(load_props_csv(path)) == 1
+
+
+def test_append_game_logs_bulk_multiple_players(tmp_path):
+    path = tmp_path / "logs.csv"
+    logs = [
+        PlayerGameLog("Josh Allen", "BUF", "MIA", "2025-09-14", "passing_yards", 278),
+        PlayerGameLog("Tyreek Hill", "MIA", "BUF", "2025-09-14", "receiving_yards", 102),
+    ]
+    count = append_game_logs_bulk(path, logs)
+    assert count == 2
+    assert load_game_logs_csv(path) == logs
+
+
+def test_append_game_logs_bulk_adds_to_existing(tmp_path):
+    path = tmp_path / "logs.csv"
+    append_game_logs_bulk(path, [PlayerGameLog("A", "T1", "T2", "2025-01-01", "points", 20)])
+    append_game_logs_bulk(path, [PlayerGameLog("B", "T3", "T4", "2025-01-02", "points", 15)])
+    assert len(load_game_logs_csv(path)) == 2
+
+
+def test_upsert_props_bulk_adds_and_updates(tmp_path):
+    path = tmp_path / "props.csv"
+    initial = [
+        PlayerProp("Josh Allen", "BUF", "MIA", "passing_yards", 245.5),
+        PlayerProp("Tyreek Hill", "MIA", "BUF", "receiving_yards", 74.5),
+    ]
+    added, updated = upsert_props_bulk(path, initial)
+    assert (added, updated) == (2, 0)
+
+    second_batch = [
+        PlayerProp("Josh Allen", "BUF", "MIA", "passing_yards", 251.5),  # update
+        PlayerProp("CeeDee Lamb", "DAL", "PHI", "receptions", 6.5),  # new
+    ]
+    added, updated = upsert_props_bulk(path, second_batch)
+    assert (added, updated) == (1, 1)
+
+    props = load_props_csv(path)
+    assert len(props) == 3
+    allen = next(p for p in props if p.player == "Josh Allen")
+    assert allen.line == 251.5
+
+
+def test_remove_props_bulk_removes_matching_and_ignores_line(tmp_path):
+    path = tmp_path / "props.csv"
+    upsert_props_bulk(
+        path,
+        [
+            PlayerProp("Josh Allen", "BUF", "MIA", "passing_yards", 245.5),
+            PlayerProp("Tyreek Hill", "MIA", "BUF", "receiving_yards", 74.5),
+            PlayerProp("CeeDee Lamb", "DAL", "PHI", "receptions", 6.5),
+        ],
+    )
+    # line value here is irrelevant for matching - only the key fields matter
+    to_remove = [
+        PlayerProp("Josh Allen", "BUF", "MIA", "passing_yards", line=0.0),
+        PlayerProp("CeeDee Lamb", "DAL", "PHI", "receptions", line=999.0),
+    ]
+    removed = remove_props_bulk(path, to_remove)
+    assert removed == 2
+    remaining = load_props_csv(path)
+    assert len(remaining) == 1
+    assert remaining[0].player == "Tyreek Hill"
+
+
+def test_remove_props_bulk_no_matches_leaves_file_untouched(tmp_path):
+    path = tmp_path / "props.csv"
+    upsert_prop(path, PlayerProp("Josh Allen", "BUF", "MIA", "passing_yards", 245.5))
+    removed = remove_props_bulk(path, [PlayerProp("Nobody", "X", "Y", "z", 0.0)])
+    assert removed == 0
     assert len(load_props_csv(path)) == 1

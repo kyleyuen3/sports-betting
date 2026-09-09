@@ -27,8 +27,11 @@ from .player_props import (
     save_game_logs_csv,
     save_props_csv,
     append_game_log,
+    append_game_logs_bulk,
     upsert_prop,
+    upsert_props_bulk,
     remove_prop,
+    remove_props_bulk,
 )
 
 __all__ = [
@@ -67,8 +70,11 @@ __all__ = [
     "save_game_logs_csv",
     "save_props_csv",
     "append_game_log",
+    "append_game_logs_bulk",
     "upsert_prop",
+    "upsert_props_bulk",
     "remove_prop",
+    "remove_props_bulk",
 ]
 
 __version__ = "0.1.0"

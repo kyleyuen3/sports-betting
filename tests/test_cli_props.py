@@ -153,3 +153,72 @@ def test_props_remove_line_no_match_exits(tmp_path):
                 "--stat-type", "points", "--props", str(props_path),
             ]
         )
+
+
+def test_log_bulk_appends_all_rows(tmp_path, capsys):
+    results_path = _write(
+        tmp_path,
+        "results.csv",
+        "player,team,opponent,date,stat_type,stat_value\n"
+        "Josh Allen,BUF,MIA,2025-09-14,passing_yards,278\n"
+        "Tyreek Hill,MIA,BUF,2025-09-14,receiving_yards,102\n",
+    )
+    logs_path = tmp_path / "game_logs.csv"
+
+    main(["props", "log-bulk", "--from", str(results_path), "--logs", str(logs_path)])
+    out = capsys.readouterr().out
+    assert "Logged 2 game(s)" in out
+    assert len(load_game_logs_csv(logs_path)) == 2
+
+
+def test_set_lines_bulk_reports_added_and_updated(tmp_path, capsys):
+    props_path = tmp_path / "props.csv"
+    first_week = _write(
+        tmp_path,
+        "week1.csv",
+        "player,team,opponent,stat_type,line\n"
+        "Josh Allen,BUF,MIA,passing_yards,245.5\n"
+        "Tyreek Hill,MIA,BUF,receiving_yards,74.5\n",
+    )
+    main(["props", "set-lines-bulk", "--from", str(first_week), "--props", str(props_path)])
+    out = capsys.readouterr().out
+    assert "Added 2 line(s), updated 0 line(s)" in out
+
+    second_week = _write(
+        tmp_path,
+        "week2.csv",
+        "player,team,opponent,stat_type,line\n"
+        "Josh Allen,BUF,NYJ,passing_yards,230.5\n"  # new matchup -> added
+        "Tyreek Hill,MIA,BUF,receiving_yards,80.0\n",  # same matchup -> updated
+    )
+    main(["props", "set-lines-bulk", "--from", str(second_week), "--props", str(props_path)])
+    out = capsys.readouterr().out
+    assert "Added 1 line(s), updated 1 line(s)" in out
+
+    props = load_props_csv(props_path)
+    assert len(props) == 3
+    hill = next(p for p in props if p.player == "Tyreek Hill")
+    assert hill.line == 80.0
+
+
+def test_remove_lines_bulk_removes_all_matching(tmp_path, capsys):
+    props_path = tmp_path / "props.csv"
+    week = _write(
+        tmp_path,
+        "week.csv",
+        "player,team,opponent,stat_type,line\n"
+        "Josh Allen,BUF,MIA,passing_yards,245.5\n"
+        "Tyreek Hill,MIA,BUF,receiving_yards,74.5\n",
+    )
+    main(["props", "set-lines-bulk", "--from", str(week), "--props", str(props_path)])
+    capsys.readouterr()
+
+    main(["props", "remove-lines-bulk", "--from", str(week), "--props", str(props_path)])
+    out = capsys.readouterr().out
+    assert "Removed 2 line(s)" in out
+    assert load_props_csv(props_path) == []
+
+
+def test_log_bulk_missing_file_exits(tmp_path):
+    with pytest.raises(SystemExit):
+        main(["props", "log-bulk", "--from", str(tmp_path / "missing.csv"), "--logs", str(tmp_path / "logs.csv")])

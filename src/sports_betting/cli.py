@@ -15,11 +15,14 @@ from .player_props import (
     PlayerGameLog,
     PlayerProp,
     append_game_log,
+    append_game_logs_bulk,
     compare_props,
     load_game_logs_csv,
     load_props_csv,
     remove_prop,
+    remove_props_bulk,
     upsert_prop,
+    upsert_props_bulk,
 )
 from .odds import (
     american_to_decimal,
@@ -253,6 +256,36 @@ def _cmd_props_remove_line(args: argparse.Namespace) -> None:
         raise SystemExit(1)
 
 
+def _cmd_props_log_bulk(args: argparse.Namespace) -> None:
+    try:
+        logs = load_game_logs_csv(args.from_file)
+    except (FileNotFoundError, KeyError) as exc:
+        print(f"Error reading CSV: {exc}", file=sys.stderr)
+        raise SystemExit(1)
+    count = append_game_logs_bulk(args.logs, logs)
+    print(f"Logged {count} game(s) to {args.logs}")
+
+
+def _cmd_props_set_lines_bulk(args: argparse.Namespace) -> None:
+    try:
+        props = load_props_csv(args.from_file)
+    except (FileNotFoundError, KeyError) as exc:
+        print(f"Error reading CSV: {exc}", file=sys.stderr)
+        raise SystemExit(1)
+    added, updated = upsert_props_bulk(args.props, props)
+    print(f"Added {added} line(s), updated {updated} line(s) in {args.props}")
+
+
+def _cmd_props_remove_lines_bulk(args: argparse.Namespace) -> None:
+    try:
+        to_remove = load_props_csv(args.from_file)
+    except (FileNotFoundError, KeyError) as exc:
+        print(f"Error reading CSV: {exc}", file=sys.stderr)
+        raise SystemExit(1)
+    removed = remove_props_bulk(args.props, to_remove)
+    print(f"Removed {removed} line(s) from {args.props}")
+
+
 def _cmd_props_compare(args: argparse.Namespace) -> None:
     try:
         props = load_props_csv(args.props)
@@ -424,6 +457,30 @@ def build_parser() -> argparse.ArgumentParser:
     p_props_remove.add_argument("--stat-type", required=True, dest="stat_type")
     p_props_remove.add_argument("--props", required=True, help="Path to the props CSV to update")
     p_props_remove.set_defaults(func=_cmd_props_remove_line)
+
+    p_props_log_bulk = props_sub.add_parser(
+        "log-bulk", help="Record many finished games at once from a game-log-format CSV"
+    )
+    p_props_log_bulk.add_argument("--from", required=True, dest="from_file", help="CSV of games to append (game-log format)")
+    p_props_log_bulk.add_argument("--logs", required=True, help="Path to the game-log CSV to append to")
+    p_props_log_bulk.set_defaults(func=_cmd_props_log_bulk)
+
+    p_props_set_bulk = props_sub.add_parser(
+        "set-lines-bulk", help="Add or update many players' lines at once from a props-format CSV"
+    )
+    p_props_set_bulk.add_argument("--from", required=True, dest="from_file", help="CSV of lines to set (props format)")
+    p_props_set_bulk.add_argument("--props", required=True, help="Path to the props CSV to update")
+    p_props_set_bulk.set_defaults(func=_cmd_props_set_lines_bulk)
+
+    p_props_remove_bulk = props_sub.add_parser(
+        "remove-lines-bulk", help="Remove many props at once, e.g. clearing last week's slate"
+    )
+    p_props_remove_bulk.add_argument(
+        "--from", required=True, dest="from_file",
+        help="CSV naming props to remove (props format; the line column is ignored)",
+    )
+    p_props_remove_bulk.add_argument("--props", required=True, help="Path to the props CSV to update")
+    p_props_remove_bulk.set_defaults(func=_cmd_props_remove_lines_bulk)
 
     return parser
 

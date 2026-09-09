@@ -19,6 +19,13 @@ Props (one row per current prop you want checked)::
 
     player,team,opponent,stat_type,line
     Josh Allen,BUF,MIA,passing_yards,245.5
+
+Both files double as bulk-update input: a CSV of several finished games in
+the game-log format can be fed to ``append_game_logs_bulk`` (or the
+`props log-bulk` CLI command) to log everyone's results for the week in
+one pass, and a CSV of several matchups in the props format can be fed to
+``upsert_props_bulk`` / `props set-lines-bulk` to set or update that
+many players' lines at once - no per-player CLI invocations needed.
 """
 
 from __future__ import annotations
@@ -211,46 +218,80 @@ def _load_props_if_exists(path: Path) -> list[PlayerProp]:
     return load_props_csv(path) if Path(path).exists() else []
 
 
-def append_game_log(path: Path, log: PlayerGameLog) -> None:
-    """Add one played game to a game-log CSV, creating the file (with header)
-    if it doesn't exist yet. This is the weekly step that turns last week's
-    prop into history: once a game is final, record what actually happened.
+def append_game_logs_bulk(path: Path, logs: list[PlayerGameLog]) -> int:
+    """Add several played games to a game-log CSV at once, creating the file
+    (with header) if it doesn't exist yet. This is the weekly step that
+    turns settled props into history: once a slate of games is final,
+    record what actually happened for everyone in one pass.
+
+    Returns the number of games appended.
     """
-    game_logs = _load_game_logs_if_exists(path)
-    game_logs.append(log)
-    save_game_logs_csv(path, game_logs)
+    existing = _load_game_logs_if_exists(path)
+    existing.extend(logs)
+    save_game_logs_csv(path, existing)
+    return len(logs)
+
+
+def append_game_log(path: Path, log: PlayerGameLog) -> None:
+    """Add one played game to a game-log CSV. See ``append_game_logs_bulk``
+    for updating several players at once.
+    """
+    append_game_logs_bulk(path, [log])
+
+
+def upsert_props_bulk(path: Path, props: list[PlayerProp]) -> tuple[int, int]:
+    """Add or update several props at once in a props CSV, creating the file
+    if it doesn't exist. Each prop is keyed by
+    (player, team, opponent, stat_type): a match replaces that row's line
+    in place, otherwise the prop is appended - so re-running this with the
+    same week's matchups never duplicates rows.
+
+    Returns ``(added, updated)`` counts.
+    """
+    existing = _load_props_if_exists(path)
+    added = updated = 0
+    for prop in props:
+        key = (prop.player, prop.team, prop.opponent, prop.stat_type)
+        for i, current in enumerate(existing):
+            if (current.player, current.team, current.opponent, current.stat_type) == key:
+                existing[i] = prop
+                updated += 1
+                break
+        else:
+            existing.append(prop)
+            added += 1
+    save_props_csv(path, existing)
+    return added, updated
 
 
 def upsert_prop(path: Path, prop: PlayerProp) -> bool:
-    """Add or update this week's line for a player+opponent+stat in a props
-    CSV, creating the file if it doesn't exist. If a prop already exists for
-    the same (player, team, opponent, stat_type), its line is replaced
-    in place rather than duplicated; otherwise the new prop is appended.
-
-    Returns True if an existing row was replaced, False if one was added.
+    """Add or update one prop. See ``upsert_props_bulk`` for updating
+    several players at once. Returns True if an existing row was replaced,
+    False if one was added.
     """
-    props = _load_props_if_exists(path)
-    key = (prop.player, prop.team, prop.opponent, prop.stat_type)
-    for i, existing in enumerate(props):
-        if (existing.player, existing.team, existing.opponent, existing.stat_type) == key:
-            props[i] = prop
-            save_props_csv(path, props)
-            return True
-    props.append(prop)
-    save_props_csv(path, props)
-    return False
+    _, updated = upsert_props_bulk(path, [prop])
+    return updated == 1
+
+
+def remove_props_bulk(path: Path, props_to_remove: list[PlayerProp]) -> int:
+    """Remove several props at once from a props CSV (e.g. clearing out a
+    week's slate before setting the next one). Each is matched by
+    (player, team, opponent, stat_type) - the ``line`` value on
+    ``props_to_remove`` is ignored, so a props CSV can double as its own
+    removal list. Returns the number of rows removed.
+    """
+    existing = _load_props_if_exists(path)
+    keys = {(p.player, p.team, p.opponent, p.stat_type) for p in props_to_remove}
+    remaining = [p for p in existing if (p.player, p.team, p.opponent, p.stat_type) not in keys]
+    removed = len(existing) - len(remaining)
+    if removed:
+        save_props_csv(path, remaining)
+    return removed
 
 
 def remove_prop(path: Path, player: str, team: str, opponent: str, stat_type: str) -> bool:
-    """Remove a single prop (e.g. a matchup that's no longer this week's
-    slate) from a props CSV. Returns True if a row was removed.
+    """Remove a single prop. See ``remove_props_bulk`` for removing several
+    at once. Returns True if a row was removed.
     """
-    props = _load_props_if_exists(path)
-    key = (player, team, opponent, stat_type)
-    remaining = [
-        p for p in props if (p.player, p.team, p.opponent, p.stat_type) != key
-    ]
-    if len(remaining) == len(props):
-        return False
-    save_props_csv(path, remaining)
-    return True
+    removed = remove_props_bulk(path, [PlayerProp(player, team, opponent, stat_type, line=0.0)])
+    return removed == 1
