@@ -75,6 +75,28 @@ for game, result in scan_for_arbitrage(games):
     print(f"{game.away_team} @ {game.home_team}: {result.profit_margin:.2%} guaranteed return")
 ```
 
+### Player props vs. opponent history
+
+There's no live player-stats or player-props feed wired up (props on The
+Odds API need a paid plan and per-event calls, and there's no stats API
+configured at all), so this works off game logs and prop lines you supply
+as CSVs — see `player_props.py` for the exact columns:
+
+```python
+from sports_betting import load_props_csv, load_game_logs_csv, compare_props
+
+props = load_props_csv("props.csv")
+game_logs = load_game_logs_csv("game_logs.csv")
+
+# Only Buffalo's props, each checked against that player's past games vs. the same opponent
+for result in compare_props(props, game_logs, team="BUF"):
+    print(
+        f"{result.prop.player} vs {result.prop.opponent}: "
+        f"{result.games_played} past games, "
+        f"hit rate {result.hit_rate_over:.0%}, avg {result.average_stat:.1f}"
+    )
+```
+
 ## CLI usage
 
 ```bash
@@ -99,6 +121,9 @@ sports-betting bankroll list
 sports-betting bankroll stats
 sports-betting bankroll leaderboard --by roi --top 5
 sports-betting bankroll export --output history.csv
+
+# Player props vs. history against the same opponent (see player_props.py for CSV columns)
+sports-betting props compare --props props.csv --logs game_logs.csv --team BUF
 ```
 
 ## CLI commands
@@ -118,6 +143,7 @@ sports-betting bankroll export --output history.csv
 | `bankroll stats`            | Show balance, net profit, ROI, and bet counts               |
 | `bankroll leaderboard`      | Rank settled bets best-to-worst by profit or ROI            |
 | `bankroll export`           | Export the full bet history to a CSV file                   |
+| `props compare`             | Check current player props against history vs. the same opponent |
 
 ## Module overview
 
@@ -129,6 +155,7 @@ sports-betting bankroll export --output history.csv
 | `arbitrage.py`   | Detect arbitrage across bookmakers and compute equal-payout stakes |
 | `bankroll.py`    | Track a bankroll's bet history, balance, and ROI            |
 | `live_odds.py`   | Fetch live odds from The Odds API and check them for arbitrage |
+| `player_props.py`| Compare a player prop line to their history vs. the same opponent (from CSV) |
 | `cli.py`         | Command-line interface tying the above together             |
 
 ## Development

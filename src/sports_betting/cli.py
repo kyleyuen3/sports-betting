@@ -11,6 +11,7 @@ from .bankroll import Bankroll, BetOutcome, DEFAULT_BANKROLL_PATH
 from .ev import expected_value
 from .kelly import kelly_fraction, kelly_stake
 from .live_odds import OddsAPIClient, OddsAPIError, scan_for_arbitrage
+from .player_props import compare_props, load_game_logs_csv, load_props_csv
 from .odds import (
     american_to_decimal,
     decimal_to_american,
@@ -208,6 +209,32 @@ def _cmd_bankroll_leaderboard(args: argparse.Namespace) -> None:
         )
 
 
+def _cmd_props_compare(args: argparse.Namespace) -> None:
+    try:
+        props = load_props_csv(args.props)
+        game_logs = load_game_logs_csv(args.logs)
+    except (FileNotFoundError, KeyError) as exc:
+        print(f"Error reading CSV: {exc}", file=sys.stderr)
+        raise SystemExit(1)
+
+    results = compare_props(props, game_logs, team=args.team)
+    if not results:
+        print("No props matched." if args.team else "No props found.")
+        return
+
+    header = f"{'Player':<20}{'Opp':>5}  {'Stat':<16}{'Line':>8}{'Games':>7}{'O-U-P':>9}{'Hit%':>8}{'Avg':>9}"
+    print(header)
+    for result in results:
+        prop = result.prop
+        hit_rate = f"{result.hit_rate_over * 100:.0f}%" if result.hit_rate_over is not None else "n/a"
+        avg = f"{result.average_stat:.1f}" if result.average_stat is not None else "n/a"
+        record = f"{result.overs}-{result.unders}-{result.pushes}"
+        print(
+            f"{prop.player:<20}{prop.opponent:>5}  {prop.stat_type:<16}{prop.line:>8g}"
+            f"{result.games_played:>7}{record:>9}{hit_rate:>8}{avg:>9}"
+        )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="sports-betting",
@@ -309,6 +336,17 @@ def build_parser() -> argparse.ArgumentParser:
     p_bank_lb.add_argument("--top", type=int, default=None, help="Only show the top N bets")
     add_file_arg(p_bank_lb)
     p_bank_lb.set_defaults(func=_cmd_bankroll_leaderboard)
+
+    p_props = sub.add_parser("props", help="Compare player props to their history against the same opponent")
+    props_sub = p_props.add_subparsers(dest="props_command", required=True)
+
+    p_props_compare = props_sub.add_parser(
+        "compare", help="Check current props against past games vs. the same opponent"
+    )
+    p_props_compare.add_argument("--props", required=True, help="Path to a props CSV (see player_props.py docstring)")
+    p_props_compare.add_argument("--logs", required=True, help="Path to a player game-log CSV")
+    p_props_compare.add_argument("--team", default=None, help="Only show props for players on this team")
+    p_props_compare.set_defaults(func=_cmd_props_compare)
 
     return parser
 
